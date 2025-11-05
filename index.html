@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tienda de Juguetes - JuegaFeliz</title>
+  <style>
+    :root {
+      --color-principal: #ff6f61;
+      --color-secundario: #ffe6e1;
+      --color-texto: #333;
+      --color-blanco: #fff;
+      --sombra: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Poppins", sans-serif; }
+    body { background:#fafafa; color:var(--color-texto); }
+    header { background:var(--color-principal); color:var(--color-blanco); text-align:center; padding:1.2rem; position:sticky; top:0; z-index:5; box-shadow:var(--sombra); }
+    header h1{ font-size:1.6rem; }
+    .productos { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; padding:1.5rem; max-width:1200px; margin:1rem auto; }
+    .producto { background:var(--color-blanco); border-radius:12px; box-shadow:var(--sombra); overflow:hidden; transition:transform .18s; }
+    .producto:hover { transform:translateY(-6px); }
+    .producto img{ width:100%; height:180px; object-fit:cover; display:block; }
+    .info { padding:0.9rem; text-align:center; }
+    .info h3{ color:var(--color-principal); margin-bottom:0.4rem; font-size:1.05rem; }
+    .info p{ margin-bottom:0.7rem; }
+    .boton { background:var(--color-principal); color:var(--color-blanco); border:none; padding:.5rem .9rem; border-radius:20px; cursor:pointer; }
+    .carrito-btn { position:fixed; right:1rem; top:1rem; width:52px; height:52px; border-radius:50%; background:var(--color-blanco); border:2px solid var(--color-principal); display:flex; align-items:center; justify-content:center; box-shadow:var(--sombra); cursor:pointer; z-index:10; }
+    .carrito-btn:hover { background:var(--color-principal); color:#fff; }
+    .contador { position:absolute; right:-6px; top:-6px; width:20px; height:20px; border-radius:50%; background:#ff0000; color:#fff; font-size:0.75rem; display:flex; align-items:center; justify-content:center; font-weight:700; }
+    /* Modal */
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center; z-index:20; }
+    .modal-contenido { background:#fff; border-radius:10px; width:92%; max-width:520px; padding:1rem; box-shadow:var(--sombra); }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem; }
+    .cerrar{ cursor:pointer; font-size:1.4rem; }
+    .carrito-lista{ max-height:320px; overflow:auto; margin-bottom:0.6rem; }
+    .carrito-item{ display:flex; gap:.6rem; align-items:center; justify-content:space-between; border-bottom:1px solid #eee; padding:.5rem 0; }
+    .eliminar{ background:none; border:none; color:#d00; cursor:pointer; font-size:1.0rem; }
+    footer{ text-align:center; padding:1rem; background:var(--color-secundario); margin-top:2rem; color:var(--color-texto); }
+    @media (max-width:480px){ header h1{ font-size:1.2rem } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎁 Productos Disponibles;</h1>
+  </header>
+
+  <div class="carrito-btn" id="carrito-btn" title="Ver carrito">
+    🛒
+    <div class="contador" id="contador">0</div>
+  </div>
+
+  <div class="modal" id="modal-carrito" aria-hidden="true">
+    <div class="modal-contenido" role="dialog" aria-modal="true" aria-labelledby="titulo-carrito">
+      <div class="modal-header">
+        <h2 id="titulo-carrito" style="color:var(--color-principal)">🛍️ Tu Carrito</h2>
+        <span class="cerrar" id="cerrar-modal" title="Cerrar">&times;</span>
+      </div>
+      <div class="carrito-lista" id="carrito-lista"></div>
+      <div style="display:flex; gap:.5rem;">
+        <button class="boton" id="vaciar-carrito" style="flex:1; background:#ccc; color:#111">Vaciar</button>
+        <button class="boton" id="finalizar-compra" style="flex:1">Finalizar Compra</button>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <section class="productos" id="lista-productos"></section>
+  </main>
+
+  <footer>© 2025 JuegaFeliz - Todos los derechos reservados</footer>
+
+  <script>
+    // Datos iniciales
+    const productos = [
+      { nombre: "Auto de Carrera Rojo", precio: 15000, imagen: "https://images.unsplash.com/photo-1596464716121-091e5d1a9b1a?q=80&w=800&auto=format&fit=crop" },
+      { nombre: "Muñeca Princesa", precio: 12000, imagen: "https://images.unsplash.com/photo-1606813907291-78b3e95fd11f?q=80&w=800&auto=format&fit=crop" },
+      { nombre: "Bloques de Construcción", precio: 18500, imagen: "https://images.unsplash.com/photo-1581244277670-1f92b0f24b52?q=80&w=800&auto=format&fit=crop" },
+      { nombre: "Pelota Saltarina", precio: 5000, imagen: "https://images.unsplash.com/photo-1580674289941-4f6c00e0f3c3?q=80&w=800&auto=format&fit=crop" },
+      { nombre: "Set de Dinosaurios", precio: 20000, imagen: "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&auto=format&fit=crop" }
+    ];
+
+    // Elementos DOM
+    const listaEl = document.getElementById('lista-productos');
+    const contadorEl = document.getElementById('contador');
+    const carritoBtn = document.getElementById('carrito-btn');
+    const modal = document.getElementById('modal-carrito');
+    const cerrarModal = document.getElementById('cerrar-modal');
+    const carritoListaEl = document.getElementById('carrito-lista');
+    const finalizarBtn = document.getElementById('finalizar-compra');
+    const vaciarBtn = document.getElementById('vaciar-carrito');
+
+    // Estado
+    let carrito = [];
+
+    // Cargar carrito de localStorage (si existe)
+    function cargarCarrito() {
+      try {
+        const data = localStorage.getItem('carrito-juegafeliz');
+        if (data) carrito = JSON.parse(data);
+      } catch (e) {
+        console.warn('No se pudo cargar carrito:', e);
+      }
+      actualizarContador();
+    }
+
+    function guardarCarrito() {
+      try {
+        localStorage.setItem('carrito-juegafeliz', JSON.stringify(carrito));
+      } catch (e) {
+        console.warn('No se pudo guardar carrito:', e);
+      }
+    }
+
+    // Renderizar productos (sin usar onclick inline)
+    function renderizarProductos() {
+      listaEl.innerHTML = '';
+      productos.forEach((p, index) => {
+        const card = document.createElement('article');
+        card.className = 'producto';
+        card.innerHTML = `
+          <img src="${p.imagen}" alt="${p.nombre}">
+          <div class="info">
+            <h3>${p.nombre}</h3>
+            <p>$${p.precio.toLocaleString()}</p>
+            <button class="boton agregar-btn">Agregar al carrito</button>
+          </div>
+        `;
+        // Añadir listener al botón recién creado
+        const botonAgregar = card.querySelector('.agregar-btn');
+        botonAgregar.addEventListener('click', () => {
+          agregarAlCarrito(index);
+        });
+        listaEl.appendChild(card);
+      });
+    }
+
+    function agregarAlCarrito(index) {
+      const producto = productos[index];
+      carrito.push(producto);
+      guardarCarrito();
+      actualizarContador();
+      mostrarCarrito(); // opcional: mantener modal actualizado si está abierto
+      console.log('Producto agregado:', producto.nombre);
+      // breve feedback visual
+      botonFlash('Agregado: ' + producto.nombre);
+    }
+
+    function botonFlash(texto) {
+      // Mensaje temporal en la esquina (simple)
+      const aviso = document.createElement('div');
+      aviso.textContent = texto;
+      aviso.style.position = 'fixed';
+      aviso.style.right = '1rem';
+      aviso.style.bottom = '1rem';
+      aviso.style.background = 'rgba(0,0,0,0.8)';
+      aviso.style.color = '#fff';
+      aviso.style.padding = '0.5rem 0.8rem';
+      aviso.style.borderRadius = '8px';
+      aviso.style.zIndex = '60';
+      document.body.appendChild(aviso);
+      setTimeout(() => aviso.remove(), 1300);
+    }
+
+    function actualizarContador() {
+      contadorEl.textContent = carrito.length;
+      contadorEl.style.display = carrito.length > 0 ? 'flex' : 'flex';
+      // (podrías ocultarlo si es 0: display = carrito.length ? 'flex' : 'none' )
+    }
+
+    function mostrarCarrito() {
+      carritoListaEl.innerHTML = '';
+      if (carrito.length === 0) {
+        carritoListaEl.innerHTML = '<p>Tu carrito está vacío.</p>';
+        return;
+      }
+      carrito.forEach((item, idx) => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'carrito-item';
+        itemEl.innerHTML = `
+          <div style="flex:1">
+            <strong>${item.nombre}</strong><br>
+            <small>$${item.precio.toLocaleString()}</small>
+          </div>
+          <div style="display:flex; gap:.5rem; align-items:center;">
+            <button class="eliminar" data-idx="${idx}" title="Eliminar">🗑️</button>
+          </div>
+        `;
+        // listener eliminar
+        itemEl.querySelector('.eliminar').addEventListener('click', (e) => {
+          const i = Number(e.currentTarget.getAttribute('data-idx'));
+          eliminarItem(i);
+        });
+        carritoListaEl.appendChild(itemEl);
+      });
+    }
+
+    function eliminarItem(i) {
+      if (i >= 0 && i < carrito.length) {
+        console.log('Eliminando:', carrito[i].nombre);
+        carrito.splice(i, 1);
+        guardarCarrito();
+        actualizarContador();
+        mostrarCarrito();
+      }
+    }
+
+    // Vaciar carrito
+    vaciarBtn.addEventListener('click', () => {
+      if (!confirm('¿Vaciar todo el carrito?')) return;
+      carrito = [];
+      guardarCarrito();
+      actualizarContador();
+      mostrarCarrito();
+    });
+
+    // Modal carrito open/close
+    carritoBtn.addEventListener('click', () => {
+      mostrarCarrito();
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+    });
+    cerrarModal.addEventListener('click', () => {
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    });
+    window.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+      }
+    });
+
+    // Finalizar compra -> WhatsApp
+    finalizarBtn.addEventListener('click', () => {
+      if (carrito.length === 0) {
+        alert('Tu carrito está vacío.');
+        return;
+      }
+      const numero = '2615036351';
+      // construir mensaje legible
+      const lineas = carrito.map((p, i) => `${i+1}. ${p.nombre} - $${p.precio.toLocaleString()}`);
+      const mensaje = `Hola! 👋 Me gustaría comprar los siguientes productos:%0A${encodeURIComponent(lineas.join('%0A'))}`;
+      // nota: usamos wa.me con prefijo país (Argentina = 54)
+      const url = `https://wa.me/54${numero}?text=${mensaje}`;
+      window.open(url, '_blank');
+    });
+
+    // Inicialización
+    cargarCarrito();
+    renderizarProductos();
+  </script>
+</body>
+</html>
